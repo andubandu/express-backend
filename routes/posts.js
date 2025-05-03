@@ -1,6 +1,5 @@
 import express from 'express';
 import Post from '../models/Post.js';
-import User from '../models/User.js';
 import { authenticateToken } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
@@ -43,10 +42,12 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
     let mediaUrl = null;
 
     if (req.file) {
-      const result = await cloudinary.uploader.upload_stream({
-        resource_type: 'auto',
-        buffer: req.file.buffer,
-      });
+      const result = await cloudinary.uploader.upload(
+        req.file.buffer,
+        {
+          resource_type: 'auto', 
+        }
+      );
 
       mediaUrl = result.secure_url;
     }
@@ -55,7 +56,7 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
       title,
       content,
       media: mediaUrl,
-      author: req.user.id,
+      author: req.user.id, // Dynamically set the author field
     });
 
     await post.save();
@@ -85,10 +86,12 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
   try {
     const updates = { ...req.body };
     if (req.file) {
-      const result = await cloudinary.uploader.upload_stream({
-        resource_type: 'auto',
-        buffer: req.file.buffer,
-      });
+      const result = await cloudinary.uploader.upload(
+        req.file.buffer,
+        {
+          resource_type: 'auto',
+        }
+      );
 
       updates.media = result.secure_url;
     }
