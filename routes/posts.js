@@ -8,6 +8,19 @@ const router = express.Router();
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+function uploadToCloudinary(fileBuffer) {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: 'auto' },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+    stream.end(fileBuffer);
+  });
+}
+
 router.get('/', async (req, res) => {
   try {
     const posts = await Post.find().populate('author', '-password');
@@ -36,32 +49,23 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
 
     let mediaUrl = null;
     if (req.file) {
-      const result = await cloudinary.uploader.upload_stream(
-        { resource_type: 'auto' },
-        async (error, result) => {
-          if (error) return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
-          mediaUrl = result.secure_url;
-          const post = new Post({
-            title,
-            content,
-            media: mediaUrl,
-            author: req.user.id,
-          });
-          await post.save();
-          res.status(201).json({ message: 'Post created successfully', post });
-        }
-      );
-      result.end(req.file.buffer);
-    } else {
-      const post = new Post({
-        title,
-        content,
-        media: null,
-        author: req.user.id,
-      });
-      await post.save();
-      res.status(201).json({ message: 'Post created successfully', post });
+      try {
+        const result = await uploadToCloudinary(req.file.buffer);
+        mediaUrl = result.secure_url;
+      } catch (err) {
+        return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
+      }
     }
+
+    const post = new Post({
+      title,
+      content,
+      media: mediaUrl,
+      author: req.user.id,
+    });
+    await post.save();
+
+    res.status(201).json({ message: 'Post created successfully', post });
   } catch (error) {
     res.status(500).json({ error: 'Error creating post' });
   }
@@ -80,33 +84,27 @@ router.delete('/del/:id', authenticateToken, async (req, res) => {
 router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const updates = { ...req.body };
+
     if (req.file) {
-      const result = await cloudinary.uploader.upload_stream(
-        { resource_type: 'auto' },
-        async (error, result) => {
-          if (error) return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
-          updates.media = result.secure_url;
-          updates.updatedAt = new Date();
-          const post = await Post.findOneAndUpdate(
-            { _id: req.params.id, author: req.user.id },
-            updates,
-            { new: true }
-          ).populate('author', '-password');
-          if (!post) return res.status(404).json({ error: 'Post not found or unauthorized' });
-          res.json(post);
-        }
-      );
-      result.end(req.file.buffer);
-    } else {
-      updates.updatedAt = new Date();
-      const post = await Post.findOneAndUpdate(
-        { _id: req.params.id, author: req.user.id },
-        updates,
-        { new: true }
-      ).populate('author', '-password');
-      if (!post) return res.status(404).json({ error: 'Post not found or unauthorized' });
-      res.json(post);
+      try {
+        const result = await uploadToCloudinary(req.file.buffer);
+        updates.media = result.secure_url;
+      } catch (err) {
+        return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
+      }
     }
+
+    updates.updatedAt = new Date();
+
+    const post = await Post.findOneAndUpdate(
+      { _id: req.params.id, author: req.user.id },
+      updates,
+      { new: true }
+    ).populate('author', '-password');
+
+    if (!post) return res.status(404).json({ error: 'Post not found or unauthorized' });
+
+    res.json(post);
   } catch (error) {
     res.status(500).json({ error: 'Error updating post' });
   }
