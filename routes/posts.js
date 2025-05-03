@@ -6,32 +6,31 @@ import multer from 'multer';
 import { Readable } from 'stream';
 
 const router = express.Router();
-const storage = multer.memoryStorage();
-const upload = multer({ 
-  storage,
+const upload = multer({
+  storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB limit
-  }
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  },
 });
 
-function uploadToCloudinary(fileBuffer) {
+async function uploadToCloudinary(file) {
   return new Promise((resolve, reject) => {
-    const stream = Readable.from(fileBuffer);
-    
     const uploadStream = cloudinary.uploader.upload_stream(
-      { 
+      {
         resource_type: 'auto',
-        folder: 'posts' 
+        folder: 'posts',
       },
       (error, result) => {
         if (error) {
           console.error('Cloudinary upload error:', error);
-          return reject(error);
+          reject(error);
+          return;
         }
         resolve(result);
       }
     );
 
+    const stream = Readable.from(file.buffer);
     stream.pipe(uploadStream);
   });
 }
@@ -60,54 +59,52 @@ router.get('/:id', async (req, res) => {
 router.post('/new', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const { title, content } = req.body;
+    
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
     }
 
-    let mediaUrl = null;
+    let mediaData = null;
+
     if (req.file) {
       try {
-        console.log('Uploading file:', {
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size
-        });
-
-        const result = await uploadToCloudinary(req.file.buffer);
-        console.log('Cloudinary upload successful:', result.secure_url);
-        mediaUrl = result.secure_url;
-      } catch (err) {
-        console.error('Error uploading to Cloudinary:', err);
-        return res.status(500).json({ 
-          error: 'Error uploading media to Cloudinary',
-          details: err.message 
-        });
+        const result = await uploadToCloudinary(req.file);
+        mediaData = {
+          url: result.secure_url,
+          type: result.resource_type
+        };
+      } catch (error) {
+        console.error('Error uploading to Cloudinary:', error);
+        return res.status(500).json({ error: 'Error uploading media' });
       }
     }
 
     const post = new Post({
       title,
       content,
-      media: mediaUrl,
-      author: req.user.id,
+      media: mediaData,
+      author: req.user.id
     });
-    
+
     await post.save();
     const populatedPost = await post.populate('author', '-password');
 
-    res.status(201).json({ 
-      message: 'Post created successfully', 
-      post: populatedPost 
+    res.status(201).json({
+      message: 'Post created successfully',
+      post: populatedPost
     });
   } catch (error) {
     console.error('Error creating post:', error);
-    res.status(500).json({ error: 'Error creating post', details: error.message });
+    res.status(500).json({ error: 'Error creating post' });
   }
 });
 
 router.delete('/del/:id', authenticateToken, async (req, res) => {
   try {
-    const post = await Post.findOneAndDelete({ _id: req.params.id, author: req.user.id });
+    const post = await Post.findOneAndDelete({
+      _id: req.params.id,
+      author: req.user.id,
+    });
     if (!post) return res.status(404).json({ error: 'Post not found or unauthorized' });
     res.status(204).send();
   } catch (error) {
@@ -121,21 +118,14 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
 
     if (req.file) {
       try {
-        console.log('Updating file:', {
-          originalname: req.file.originalname,
-          mimetype: req.file.mimetype,
-          size: req.file.size
-        });
-
-        const result = await uploadToCloudinary(req.file.buffer);
-        console.log('Cloudinary update successful:', result.secure_url);
-        updates.media = result.secure_url;
-      } catch (err) {
-        console.error('Error uploading to Cloudinary:', err);
-        return res.status(500).json({ 
-          error: 'Error uploading media to Cloudinary',
-          details: err.message 
-        });
+        const result = await uploadToCloudinary(req.file);
+        updates.media = {
+          url: result.secure_url,
+          type: result.resource_type
+        };
+      } catch (error) {
+        console.error('Error uploading to Cloudinary:', error);
+        return res.status(500).json({ error: 'Error uploading media' });
       }
     }
 
@@ -152,7 +142,7 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
     res.json(post);
   } catch (error) {
     console.error('Error updating post:', error);
-    res.status(500).json({ error: 'Error updating post', details: error.message });
+    res.status(500).json({ error: 'Error updating post' });
   }
 });
 
