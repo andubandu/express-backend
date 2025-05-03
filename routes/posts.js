@@ -1,23 +1,20 @@
 import express from 'express';
 import Post from '../models/Post.js';
-import User from '../models/User.js'; // Import User model
+import User from '../models/User.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { upload, handleFileUpload } from '../middleware/upload.js';
+import cloudinary from '../config/cloudinary.js';
+import multer from 'multer';
 
 const router = express.Router();
 
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
+
 router.get('/', async (req, res) => {
   try {
-    const {userID} = req.query;
-    if (userID) {
-      const posts = await Post.find({ author: userID }).populate('author', '-password');
-      res.setHeader('Content-Type', 'application/json');
-      res.send(JSON.stringify(posts, null, 2));
-    } else {
     const posts = await Post.find().populate('author', '-password');
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(posts, null, 2));
-    }
   } catch (error) {
     res.status(500).json({ error: 'Error fetching posts' });
   }
@@ -25,10 +22,7 @@ router.get('/', async (req, res) => {
 
 router.get('/:id', async (req, res) => {
   try {
-    const post = await Post.findById(req.params.id).populate(
-      'author',
-      '-password'
-    );
+    const post = await Post.findById(req.params.id).populate('author', '-password');
     if (!post) return res.status(404).json({ error: 'Post not found' });
 
     res.setHeader('Content-Type', 'application/json');
@@ -38,21 +32,30 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.post('/new', authenticateToken, async (req, res) => {
+router.post('/new', authenticateToken, upload.single('media'), async (req, res) => {
   try {
-    const { title, content, media } = req.body;
+    const { title, content } = req.body;
 
-    // Validate required fields
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
     }
 
-    // Create a new post
+    let mediaUrl = null;
+
+    if (req.file) {
+      const result = await cloudinary.uploader.upload_stream({
+        resource_type: 'auto',
+        buffer: req.file.buffer,
+      });
+
+      mediaUrl = result.secure_url;
+    }
+
     const post = new Post({
       title,
       content,
-      media,
-      author: req.user.id, // Dynamically set the author field
+      media: mediaUrl,
+      author: req.user.id,
     });
 
     await post.save();
@@ -78,37 +81,31 @@ router.delete('/del/:id', authenticateToken, async (req, res) => {
   }
 });
 
-router.put(
-  '/upd/:id',
-  authenticateToken,
-  upload.single('media'),
-  handleFileUpload,
-  async (req, res) => {
-    try {
-      const updates = { ...req.body };
-      if (req.fileUrl) {
-        updates.media = {
-          url: req.fileUrl,
-          type: req.fileType,
-        };
-      }
-      updates.updatedAt = new Date();
+router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, res) => {
+  try {
+    const updates = { ...req.body };
+    if (req.file) {
+      const result = await cloudinary.uploader.upload_stream({
+        resource_type: 'auto',
+        buffer: req.file.buffer,
+      });
 
-      const post = await Post.findOneAndUpdate(
-        { _id: req.params.id, author: req.user.id },
-        updates,
-        { new: true }
-      ).populate('author', '-password');
-
-      if (!post)
-        return res
-          .status(404)
-          .json({ error: 'Post not found or unauthorized' });
-      res.json(post);
-    } catch (error) {
-      res.status(500).json({ error: 'Error updating post' });
+      updates.media = result.secure_url;
     }
+    updates.updatedAt = new Date();
+
+    const post = await Post.findOneAndUpdate(
+      { _id: req.params.id, author: req.user.id },
+      updates,
+      { new: true }
+    ).populate('author', '-password');
+
+    if (!post)
+      return res.status(404).json({ error: 'Post not found or unauthorized' });
+    res.json(post);
+  } catch (error) {
+    res.status(500).json({ error: 'Error updating post' });
   }
-);
+});
 
 export default router;
