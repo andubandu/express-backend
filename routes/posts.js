@@ -15,6 +15,7 @@ router.get('/', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(posts, null, 2));
   } catch (error) {
+    console.error('Error fetching posts:', error); 
     res.status(500).json({ error: 'Error fetching posts' });
   }
 });
@@ -27,6 +28,7 @@ router.get('/:id', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(post, null, 2));
   } catch (error) {
+    console.error('Error fetching post:', error);
     res.status(500).json({ error: 'Error fetching post' });
   }
 });
@@ -42,21 +44,23 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
     let mediaUrl = null;
 
     if (req.file) {
-      const result = await cloudinary.uploader.upload(
-        req.file.buffer,
-        {
+      try {
+        const result = await cloudinary.uploader.upload(req.file.buffer, {
           resource_type: 'auto', 
-        }
-      );
-
-      mediaUrl = result.secure_url;
+        });
+        console.log('Cloudinary upload result:', result);
+        mediaUrl = result.secure_url;
+      } catch (cloudinaryError) {
+        console.error('Cloudinary upload error:', cloudinaryError);
+        return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
+      }
     }
 
     const post = new Post({
       title,
       content,
       media: mediaUrl,
-      author: req.user.id, // Dynamically set the author field
+      author: req.user.id,
     });
 
     await post.save();
@@ -78,6 +82,7 @@ router.delete('/del/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Post not found or unauthorized' });
     res.status(204).send();
   } catch (error) {
+    console.error('Error deleting post:', error);
     res.status(500).json({ error: 'Error deleting post' });
   }
 });
@@ -86,14 +91,18 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
   try {
     const updates = { ...req.body };
     if (req.file) {
-      const result = await cloudinary.uploader.upload(
-        req.file.buffer,
-        {
+      try {
+        const result = await cloudinary.uploader.upload(req.file.buffer, {
           resource_type: 'auto',
-        }
-      );
+        });
 
-      updates.media = result.secure_url;
+        console.log('Cloudinary update result:', result);
+
+        updates.media = result.secure_url;
+      } catch (cloudinaryError) {
+        console.error('Cloudinary update error:', cloudinaryError);
+        return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
+      }
     }
     updates.updatedAt = new Date();
 
@@ -107,6 +116,7 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
       return res.status(404).json({ error: 'Post not found or unauthorized' });
     res.json(post);
   } catch (error) {
+    console.error('Error updating post:', error); 
     res.status(500).json({ error: 'Error updating post' });
   }
 });
