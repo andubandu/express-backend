@@ -3,21 +3,36 @@ import Post from '../models/Post.js';
 import { authenticateToken } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
+import { Readable } from 'stream';
 
 const router = express.Router();
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
 
 function uploadToCloudinary(fileBuffer) {
   return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { resource_type: 'auto' },
+    const stream = Readable.from(fileBuffer);
+    
+    const uploadStream = cloudinary.uploader.upload_stream(
+      { 
+        resource_type: 'auto',
+        folder: 'posts' 
+      },
       (error, result) => {
-        if (error) return reject(error);
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          return reject(error);
+        }
         resolve(result);
       }
     );
-    stream.end(fileBuffer);
+
+    stream.pipe(uploadStream);
   });
 }
 
@@ -45,15 +60,28 @@ router.get('/:id', async (req, res) => {
 router.post('/new', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const { title, content } = req.body;
-    if (!title || !content) return res.status(400).json({ error: 'Title and content are required' });
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Title and content are required' });
+    }
 
     let mediaUrl = null;
     if (req.file) {
       try {
+        console.log('Uploading file:', {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        });
+
         const result = await uploadToCloudinary(req.file.buffer);
+        console.log('Cloudinary upload successful:', result.secure_url);
         mediaUrl = result.secure_url;
       } catch (err) {
-        return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
+        console.error('Error uploading to Cloudinary:', err);
+        return res.status(500).json({ 
+          error: 'Error uploading media to Cloudinary',
+          details: err.message 
+        });
       }
     }
 
@@ -63,11 +91,17 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
       media: mediaUrl,
       author: req.user.id,
     });
+    
     await post.save();
+    const populatedPost = await post.populate('author', '-password');
 
-    res.status(201).json({ message: 'Post created successfully', post });
+    res.status(201).json({ 
+      message: 'Post created successfully', 
+      post: populatedPost 
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Error creating post' });
+    console.error('Error creating post:', error);
+    res.status(500).json({ error: 'Error creating post', details: error.message });
   }
 });
 
@@ -87,10 +121,21 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
 
     if (req.file) {
       try {
+        console.log('Updating file:', {
+          originalname: req.file.originalname,
+          mimetype: req.file.mimetype,
+          size: req.file.size
+        });
+
         const result = await uploadToCloudinary(req.file.buffer);
+        console.log('Cloudinary update successful:', result.secure_url);
         updates.media = result.secure_url;
       } catch (err) {
-        return res.status(500).json({ error: 'Error uploading media to Cloudinary' });
+        console.error('Error uploading to Cloudinary:', err);
+        return res.status(500).json({ 
+          error: 'Error uploading media to Cloudinary',
+          details: err.message 
+        });
       }
     }
 
@@ -106,7 +151,8 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
 
     res.json(post);
   } catch (error) {
-    res.status(500).json({ error: 'Error updating post' });
+    console.error('Error updating post:', error);
+    res.status(500).json({ error: 'Error updating post', details: error.message });
   }
 });
 
