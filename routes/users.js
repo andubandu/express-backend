@@ -15,7 +15,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.get('/:username', async (req, res) => {
+router.get('/by-user/:username', async (req, res) => {
   try {
     const user = await User.findOne(
       { username: req.params.username },
@@ -30,9 +30,9 @@ router.get('/:username', async (req, res) => {
   }
 });
 
-router.get('/users/:id', async (req, res) => { // i added this because /users/currentProfile was not working the way expected
+router.get('/currentProfile', authenticateToken, async (req, res) => { 
   try {
-    const user = await User.findById(req.params.id, { password: 0 });
+    const user = await User.findById(req.user.id, { password: 0 });
     if (!user) return res.status(404).json({ error: 'User not found' });
     res.json(user);
   } catch (error) {
