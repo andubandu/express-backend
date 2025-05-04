@@ -30,6 +30,19 @@ router.get('/:username', async (req, res) => {
   }
 });
 
+router.get('/currentProfile', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id, { password: 0 });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(user, null, 2));
+  } catch (error) {
+    res.status(500).json({ error: 'Error fetching current user' });
+  }
+});
+
+
 router.delete('/del/:id', authenticateToken, async (req, res) => {
   try {
     console.log('Deleting user with ID:', req.params.id); // Debug log
