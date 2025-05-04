@@ -32,8 +32,8 @@ router.get('/:username', async (req, res) => {
 
 router.get('/currentProfile', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id, { password: 0 });
-    if (!user) return res.status(404).json({ error: 'User not found' });
+    const user = await User.findById(req.user.id);
+    
 
     res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(user, null, 2));
