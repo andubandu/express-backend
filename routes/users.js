@@ -30,15 +30,13 @@ router.get('/:username', async (req, res) => {
   }
 });
 
-router.get('/currentProfile', authenticateToken, async (req, res) => {
+router.get('/users/:id', async (req, res) => { // i added this because /users/currentProfile was not working the way expected
   try {
-    const user = await User.findById(req.user.id);
-    
-
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(user, null, 2));
+    const user = await User.findById(req.params.id, { password: 0 });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
   } catch (error) {
-    res.status(500).json({ error: 'Error fetching current user' });
+    res.status(500).json({ error: 'Error fetching user by ID' });
   }
 });
 
