@@ -110,13 +110,14 @@ router.post('/:postId', authenticateToken, upload.single('media'), async (req, r
   }
 });
 
-router.put('/:postId/:commentId', authenticateToken, upload.single('media'), async (req, res) => {
+
+router.put('/:postId/:commentId', authenticateToken, async (req, res) => { 
   try {
     const { postId, commentId } = req.params;
     const { content } = req.body;
 
-    if (!postId || !commentId) {
-      return res.status(400).json({ error: 'Post ID and Comment ID are required' });
+    if (!content) {
+      return res.status(400).json({ error: 'Content is required' });
     }
 
     const comment = await Comment.findById(commentId);
@@ -124,61 +125,41 @@ router.put('/:postId/:commentId', authenticateToken, upload.single('media'), asy
       return res.status(404).json({ error: 'Comment not found' });
     }
 
+
     if (comment.author.toString() !== req.user.id) {
-      return res.status(403).json({ error: 'You can only update your own comments' });
+      return res.status(403).json({ error: 'Unauthorized to edit this comment' });
     }
 
-    let mediaData = comment.media; 
-    if (req.file) {
-      try {
-        const result = await uploadToCloudinary(req.file);
-        mediaData = {
-          url: result.secure_url,
-          type: result.resource_type,
-        };
-      } catch (error) {
-        console.error('Error uploading to Cloudinary:', error);
-        return res.status(500).json({ error: 'Error uploading media' });
-      }
-    }
+    comment.content = content;
+    await comment.save();
 
-    comment.content = content || comment.content;
-    comment.media = mediaData;
-
-    const updatedComment = await comment.save();
-    const populatedComment = await updatedComment.populate('author', '-password');
-
-    res.status(200).json(populatedComment);
+    res.json({ message: 'Comment updated successfully', comment });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error updating comment' });
   }
 });
-
 router.delete('/:postId/:commentId', authenticateToken, async (req, res) => {
   try {
     const { postId, commentId } = req.params;
-
-    if (!postId || !commentId) {
-      return res.status(400).json({ error: 'Post ID and Comment ID are required' });
-    }
 
     const comment = await Comment.findById(commentId);
     if (!comment) {
       return res.status(404).json({ error: 'Comment not found' });
     }
-
     if (comment.author.toString() !== req.user.id) {
-      return res.status(403).json({ error: 'You can only delete your own comments' });
+      return res.status(403).json({ error: 'Unauthorized to delete this comment' });
     }
 
-    await comment.remove();
+    await Comment.findByIdAndDelete(commentId);
 
-    res.status(200).json({ message: 'Comment deleted successfully' });
+    res.json({ message: 'Comment deleted successfully' });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error deleting comment' });
   }
+});
+
 });
 
 export default router;
