@@ -10,18 +10,13 @@ import { Readable } from 'stream';
 const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, 
-  },
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 async function uploadToCloudinary(file) {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      {
-        resource_type: 'auto',
-        folder: 'comments',
-      },
+      { resource_type: 'auto', folder: 'comments' },
       (error, result) => {
         if (error) {
           console.error('Cloudinary upload error:', error);
@@ -31,12 +26,10 @@ async function uploadToCloudinary(file) {
         resolve(result);
       }
     );
-
     const stream = Readable.from(file.buffer);
     stream.pipe(uploadStream);
   });
 }
-
 router.get('/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
@@ -51,17 +44,14 @@ router.get('/:postId', async (req, res) => {
       return res.json({ count: commentCount });
     }
 
-    const comments = await Comment.find({ postId })
-      .populate('author', '-password') 
-      .populate('postId', 'title content');
-
-    res.json(comments);
+    const comments = await Comment.find({ postId }).populate('author', '-password');
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(comments, null, 2));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error fetching comments' });
   }
 });
-
 router.post('/:postId', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const { postId } = req.params;
@@ -83,10 +73,7 @@ router.post('/:postId', authenticateToken, upload.single('media'), async (req, r
     if (req.file) {
       try {
         const result = await uploadToCloudinary(req.file);
-        mediaData = {
-          url: result.secure_url,
-          type: result.resource_type,
-        };
+        mediaData = { url: result.secure_url, type: result.resource_type };
       } catch (error) {
         console.error('Error uploading to Cloudinary:', error);
         return res.status(500).json({ error: 'Error uploading media' });
@@ -110,8 +97,7 @@ router.post('/:postId', authenticateToken, upload.single('media'), async (req, r
   }
 });
 
-
-router.put('/:postId/:commentId', authenticateToken, async (req, res) => { 
+router.put('/:postId/:commentId', authenticateToken, async (req, res) => {
   try {
     const { postId, commentId } = req.params;
     const { content } = req.body;
@@ -124,7 +110,6 @@ router.put('/:postId/:commentId', authenticateToken, async (req, res) => {
     if (!comment) {
       return res.status(404).json({ error: 'Comment not found' });
     }
-
 
     if (comment.author.toString() !== req.user.id) {
       return res.status(403).json({ error: 'Unauthorized to edit this comment' });
@@ -139,6 +124,7 @@ router.put('/:postId/:commentId', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Error updating comment' });
   }
 });
+
 router.delete('/:postId/:commentId', authenticateToken, async (req, res) => {
   try {
     const { postId, commentId } = req.params;
@@ -147,6 +133,7 @@ router.delete('/:postId/:commentId', authenticateToken, async (req, res) => {
     if (!comment) {
       return res.status(404).json({ error: 'Comment not found' });
     }
+
     if (comment.author.toString() !== req.user.id) {
       return res.status(403).json({ error: 'Unauthorized to delete this comment' });
     }
@@ -158,8 +145,6 @@ router.delete('/:postId/:commentId', authenticateToken, async (req, res) => {
     console.error(error);
     res.status(500).json({ error: 'Error deleting comment' });
   }
-});
-
 });
 
 export default router;
