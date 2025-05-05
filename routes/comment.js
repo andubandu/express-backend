@@ -11,11 +11,10 @@ const router = express.Router();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024, 
   },
 });
 
-// Function to upload media to Cloudinary
 async function uploadToCloudinary(file) {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -38,7 +37,6 @@ async function uploadToCloudinary(file) {
   });
 }
 
-// Fetch comments for a post
 router.get('/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
@@ -54,8 +52,8 @@ router.get('/:postId', async (req, res) => {
     }
 
     const comments = await Comment.find({ postId })
-      .populate('author', '-password') // Exclude password from user data
-      .populate('postId', 'title content'); // Include post data (like title/content)
+      .populate('author', '-password') 
+      .populate('postId', 'title content');
 
     res.json(comments);
   } catch (error) {
@@ -64,7 +62,6 @@ router.get('/:postId', async (req, res) => {
   }
 });
 
-// Add a new comment
 router.post('/:postId', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const { postId } = req.params;
@@ -113,7 +110,6 @@ router.post('/:postId', authenticateToken, upload.single('media'), async (req, r
   }
 });
 
-// Update a comment (PUT)
 router.put('/:postId/:commentId', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const { postId, commentId } = req.params;
@@ -128,15 +124,13 @@ router.put('/:postId/:commentId', authenticateToken, upload.single('media'), asy
       return res.status(404).json({ error: 'Comment not found' });
     }
 
-    // Ensure the user is the owner of the comment
     if (comment.author.toString() !== req.user.id) {
       return res.status(403).json({ error: 'You can only update your own comments' });
     }
 
-    let mediaData = comment.media; // Preserve existing media if not updated
+    let mediaData = comment.media; 
     if (req.file) {
       try {
-        // Upload the new media to Cloudinary
         const result = await uploadToCloudinary(req.file);
         mediaData = {
           url: result.secure_url,
@@ -148,7 +142,6 @@ router.put('/:postId/:commentId', authenticateToken, upload.single('media'), asy
       }
     }
 
-    // Update comment content and media
     comment.content = content || comment.content;
     comment.media = mediaData;
 
@@ -162,7 +155,6 @@ router.put('/:postId/:commentId', authenticateToken, upload.single('media'), asy
   }
 });
 
-// Delete a comment (DELETE)
 router.delete('/:postId/:commentId', authenticateToken, async (req, res) => {
   try {
     const { postId, commentId } = req.params;
@@ -176,12 +168,10 @@ router.delete('/:postId/:commentId', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
-    // Ensure the user is the owner of the comment
     if (comment.author.toString() !== req.user.id) {
       return res.status(403).json({ error: 'You can only delete your own comments' });
     }
 
-    // Delete the comment
     await comment.remove();
 
     res.status(200).json({ message: 'Comment deleted successfully' });
