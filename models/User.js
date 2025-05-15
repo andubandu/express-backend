@@ -6,23 +6,31 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   avatar: { type: String },
+  status: { type: String, enum: ['active', 'permaban', 'suspended'], default: 'active' },
   createdAt: { type: Date, default: Date.now },
 });
 
 userSchema.pre('findOneAndDelete', async function (next) {
   try {
     const userId = this.getQuery()._id;
-    console.log('Deleting posts for user ID:', userId); // Debug log
-    await Post.deleteMany({ author: userId }); // Delete associated posts
+    console.log('Deleting posts for deleted user ID:', userId);
+    await Post.deleteMany({ author: userId });
     next();
   } catch (error) {
     next(error);
   }
 });
 
-userSchema.pre('remove', async function (next) {
+userSchema.pre('findOneAndUpdate', async function (next) {
   try {
-    await Post.deleteMany({ userId: this._id });
+    const update = this.getUpdate();
+
+    if (update.status === 'permaban') {
+      const userId = this.getQuery()._id;
+      console.log('Deleting posts for permabanned user ID:', userId);
+      await Post.deleteMany({ author: userId });
+    }
+
     next();
   } catch (error) {
     next(error);
