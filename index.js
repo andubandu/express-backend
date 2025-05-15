@@ -14,6 +14,7 @@ import postRoutes from './routes/posts.js';
 import authRoutes from './routes/auth.js';
 import likeRoutes from './routes/like.js';
 import commentRoutes from './routes/comment.js'; 
+import followersRoutes from './routes/followers.js';
 
 dotenv.config();
 
@@ -27,7 +28,7 @@ app.use(express.json());
 connectDB();
 
 app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.send('hi')
 });
 
 app.use('/users', userRoutes);
@@ -35,6 +36,7 @@ app.use('/posts', postRoutes);
 app.use('/auth', authRoutes);
 app.use('/likes', likeRoutes);
 app.use('/comments', commentRoutes); 
+app.use('/followers', followersRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
