@@ -5,15 +5,19 @@ import { upload, handleFileUpload } from '../middleware/upload.js';
 
 const router = express.Router();
 
-router.get('/', async (req, res) => {
-  try {
-    const users = await User.find({}, { password: 0 });
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(users, null, 2));
-  } catch (error) {
-    res.status(500).json({ error: 'Error fetching users' });
-  }
-});
+// router.get('/', async (req, res) => {
+//   try {
+//     const users = await User.find({}, { password: 0 });
+//     res.setHeader('Content-Type', 'application/json');
+//     res.send(JSON.stringify(users, null, 2));
+//   } catch (error) {
+//     res.status(500).json({ error: 'Error fetching users' });
+//   }
+// });
+
+router.get('/', (req,res) => {
+res.status(405).json("Error 405 - Method Not Allowed")
+}
 
 router.get('/by-user/:username', async (req, res) => {
   try {
