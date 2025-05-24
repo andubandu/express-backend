@@ -31,9 +31,6 @@ async function uploadToCloudinary(file) {
   });
 }
 
-router.get('/', (req,res) => {
-res.status(405).json("Error 405 - Method Not Allowed")
-}
 router.get('/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
