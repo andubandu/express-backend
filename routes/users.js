@@ -29,7 +29,7 @@ const isModeratorOrAdmin = async (req, res, next) => {
   }
 };
 
-router.get('/', isModeratorOrAdmin, async (req,res) => {
+router.get('/', async (req,res) => {
   try {
     const users = await User.find();
     res.json(users);
