@@ -14,12 +14,11 @@ import postRoutes from './routes/posts.js';
 import authRoutes from './routes/auth.js';
 import likeRoutes from './routes/like.js';
 import commentRoutes from './routes/comment.js'; 
-import followersRoutes from './routes/followers.js';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
@@ -36,7 +35,6 @@ app.use('/posts', postRoutes);
 app.use('/auth', authRoutes);
 app.use('/likes', likeRoutes);
 app.use('/comments', commentRoutes); 
-app.use('/followers', followersRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);

@@ -11,9 +11,9 @@ const userSchema = new mongoose.Schema({
     enum: ['user', 'moderator', 'admin'],
     default: ['user']
   },
-  status: { 
+  status: {   
     type: String, 
-    enum: ['active', 'permaban', 'suspended', 'restricted', 'verified'],
+    enum: ['active', 'permaban', 'suspended', 'verified'],
     default: 'active' 
   },
   statusReason: { type: String },
