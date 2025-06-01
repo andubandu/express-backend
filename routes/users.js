@@ -29,15 +29,7 @@ const isModeratorOrAdmin = async (req, res, next) => {
   }
 };
 
-router.get('/', async (req, res) => {
-  try {
-    const users = await User.find({}, { password: 0 });
-    res.setHeader('Content-Type', 'application/json');
-    res.send(JSON.stringify(users, null, 2));
-  } catch (error) {
-    res.status(500).json({ error: 'Error fetching users' });
-  }
-});
+
 
 router.get('/by-user/:username', async (req, res) => {
   try {
