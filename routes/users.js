@@ -29,15 +29,14 @@ const isModeratorOrAdmin = async (req, res, next) => {
   }
 };
 
-app.get('/users', isModeratorOrAdmin, async (req, res) => {
+router.get('/', isModeratorOrAdmin, async (req,res) => {
   try {
     const users = await User.find();
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: 'Failed to fetch users' });
   }
-});
-
+})
   
 
 router.get('/by-user/:username', async (req, res) => {
