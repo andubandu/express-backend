@@ -72,7 +72,6 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
       author: req.user.id
     };
 
-    // Handle Bunny.net video
     if (bunnyVideoId) {
       try {
         if (!isValidBunnyVideoId(bunnyVideoId)) {
@@ -95,7 +94,6 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
         return res.status(500).json({ error: 'Error processing Bunny video' });
       }
     }
-    // Handle Cloudinary upload (existing functionality)
     else if (req.file) {
       try {
         const result = await uploadToCloudinary(req.file);
@@ -168,7 +166,6 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
         return res.status(500).json({ error: 'Error processing Bunny video' });
       }
     }
-    // Handle Cloudinary upload (existing functionality)
     else if (req.file) {
       try {
         const result = await uploadToCloudinary(req.file);
@@ -176,7 +173,6 @@ router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, re
           url: result.secure_url,
           type: result.resource_type
         };
-        // Clear bunnyVideoId if uploading new media
         updates.bunnyVideoId = null;
       } catch (error) {
         console.error('Error uploading to Cloudinary:', error);
