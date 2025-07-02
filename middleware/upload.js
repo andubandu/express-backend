@@ -18,7 +18,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 export const upload = multer({
-  dest: os.tmpdir(), // Use system temp directory instead of uploads/
+  dest: os.tmpdir(), 
   limits: {
     fileSize: 15 * 1024 * 1024,
   },
