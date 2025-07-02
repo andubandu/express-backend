@@ -4,6 +4,7 @@ import { authenticateToken } from '../middleware/auth.js';
 import cloudinary from '../config/cloudinary.js';
 import multer from 'multer';
 import { Readable } from 'stream';
+import { generateBunnyPlaybackUrl, isValidBunnyVideoId } from '../utils/bunny.js';
 
 const router = express.Router();
 const upload = multer({
@@ -58,15 +59,44 @@ router.get('/:id', async (req, res) => {
 
 router.post('/new', authenticateToken, upload.single('media'), async (req, res) => {
   try {
-    const { title, content } = req.body;
+    const { title, content, bunnyVideoId } = req.body;
     
     if (!title || !content) {
       return res.status(400).json({ error: 'Title and content are required' });
     }
 
     let mediaData = null;
+    let postData = {
+      title,
+      content,
+      author: req.user.id
+    };
 
-    if (req.file) {
+    // Handle Bunny.net video
+    if (bunnyVideoId) {
+      try {
+        if (!isValidBunnyVideoId(bunnyVideoId)) {
+          return res.status(400).json({ error: 'Invalid Bunny video ID format' });
+        }
+
+        const libraryId = process.env.BUNNY_LIBRARY_ID;
+        if (!libraryId) {
+          return res.status(500).json({ error: 'Bunny library ID not configured' });
+        }
+
+        const playbackUrl = generateBunnyPlaybackUrl(bunnyVideoId, libraryId);
+        mediaData = {
+          url: playbackUrl,
+          type: 'video'
+        };
+        postData.bunnyVideoId = bunnyVideoId;
+      } catch (error) {
+        console.error('Error processing Bunny video:', error);
+        return res.status(500).json({ error: 'Error processing Bunny video' });
+      }
+    }
+    // Handle Cloudinary upload (existing functionality)
+    else if (req.file) {
       try {
         const result = await uploadToCloudinary(req.file);
         mediaData = {
@@ -79,13 +109,11 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
       }
     }
 
-    const post = new Post({
-      title,
-      content,
-      media: mediaData,
-      author: req.user.id
-    });
+    if (mediaData) {
+      postData.media = mediaData;
+    }
 
+    const post = new Post(postData);
     await post.save();
     const populatedPost = await post.populate('author', '-password');
 
@@ -98,8 +126,6 @@ router.post('/new', authenticateToken, upload.single('media'), async (req, res) 
     res.status(500).json({ error: 'Error creating post' });
   }
 });
-
-
 
 router.delete('/del/:id', authenticateToken, async (req, res) => {
   try {
@@ -117,14 +143,41 @@ router.delete('/del/:id', authenticateToken, async (req, res) => {
 router.put('/upd/:id', authenticateToken, upload.single('media'), async (req, res) => {
   try {
     const updates = { ...req.body };
+    const { bunnyVideoId } = req.body;
 
-    if (req.file) {
+    // Handle Bunny.net video update
+    if (bunnyVideoId) {
+      try {
+        if (!isValidBunnyVideoId(bunnyVideoId)) {
+          return res.status(400).json({ error: 'Invalid Bunny video ID format' });
+        }
+
+        const libraryId = process.env.BUNNY_LIBRARY_ID;
+        if (!libraryId) {
+          return res.status(500).json({ error: 'Bunny library ID not configured' });
+        }
+
+        const playbackUrl = generateBunnyPlaybackUrl(bunnyVideoId, libraryId);
+        updates.media = {
+          url: playbackUrl,
+          type: 'video'
+        };
+        updates.bunnyVideoId = bunnyVideoId;
+      } catch (error) {
+        console.error('Error processing Bunny video:', error);
+        return res.status(500).json({ error: 'Error processing Bunny video' });
+      }
+    }
+    // Handle Cloudinary upload (existing functionality)
+    else if (req.file) {
       try {
         const result = await uploadToCloudinary(req.file);
         updates.media = {
           url: result.secure_url,
           type: result.resource_type
         };
+        // Clear bunnyVideoId if uploading new media
+        updates.bunnyVideoId = null;
       } catch (error) {
         console.error('Error uploading to Cloudinary:', error);
         return res.status(500).json({ error: 'Error uploading media' });
