@@ -7,7 +7,7 @@ const postSchema = new mongoose.Schema({
     url: { type: String },
     type: { type: String, enum: ['image', 'video'] },
   },
-  bunnyVideoId: { type: String }, // New field for Bunny.net video ID
+  bunnyVideoId: { type: String }, 
   author: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
