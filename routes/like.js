@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
     }
 
     if (!userId && !number && !postId) {
-      return res.status(400).json({ error: 'At least ONE query param (postId, userId, or number) is required!' }); // Add return
+      return res.status(400).json({ error: 'At least ONE query param (postId, userId, or number) is required!' });
     }
 
     const likes = await Like.find(filter);
